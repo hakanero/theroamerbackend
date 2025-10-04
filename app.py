@@ -28,6 +28,14 @@ GENAI_API_KEY = os.getenv("GENAI_API_KEY")
 MAPS_API_KEY = os.getenv("MAPS_API_KEY")
 ELEVEN_API_KEY = os.getenv("ELEVEN_API_KEY")
 
+# Validate required API keys
+if not GENAI_API_KEY:
+    raise ValueError("GENAI_API_KEY environment variable is required")
+if not MAPS_API_KEY:
+    raise ValueError("MAPS_API_KEY environment variable is required")
+if not ELEVEN_API_KEY:
+    raise ValueError("ELEVEN_API_KEY environment variable is required")
+
 genai.configure(api_key=GENAI_API_KEY)
 model = genai.GenerativeModel("gemini-2.5-flash")
 
