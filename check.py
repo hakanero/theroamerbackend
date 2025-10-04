@@ -107,14 +107,6 @@ def speech(msg):
     with tempfile.NamedTemporaryFile(delete=False, suffix=".mp3") as f:
         for chunk in audio_stream:
             f.write(chunk)
-        audio_path = f.name
-
-    # Play audio (blocking until finished)
-    pygame.mixer.init()
-    pygame.mixer.music.load(audio_path)
-    pygame.mixer.music.play()
-    while pygame.mixer.music.get_busy():  # waits until playback ends
-        pygame.time.Clock().tick(10)
 
 if __name__ == "__main__":
     # White House, Washington DC
