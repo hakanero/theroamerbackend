@@ -12,7 +12,18 @@ from math import radians, cos, sin, sqrt, atan2
 load_dotenv()
 
 app = Flask(__name__)
-CORS(app)
+
+# Configure CORS to allow requests from your Netlify frontend
+CORS(app, resources={
+    r"/*": {
+        "origins": ["https://theroamer.netlify.app", "http://localhost:3000", "http://localhost:5173"],
+        "methods": ["GET", "POST", "OPTIONS"],
+        "allow_headers": ["Content-Type", "Authorization"],
+        "expose_headers": ["Content-Type"],
+        "supports_credentials": True,
+        "max_age": 3600
+    }
+})
 
 # Configuration
 GENAI_API_KEY = os.getenv("GENAI_API_KEY")
