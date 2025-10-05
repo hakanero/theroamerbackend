@@ -15,12 +15,10 @@ app = Flask(__name__)
 
 # Configure CORS to allow requests from your Netlify frontend
 CORS(app, 
-     origins=["https://theroamer.netlify.app", "http://localhost:3000", "http://localhost:5173"],
-     methods=["GET", "POST", "OPTIONS"],
+     resources={r"/*": {"origins": "*"}},
      allow_headers=["Content-Type", "Authorization"],
-     expose_headers=["Content-Type"],
-     supports_credentials=True,
-     max_age=3600
+     methods=["GET", "POST", "OPTIONS"],
+     supports_credentials=False
 )
 
 # Configuration
