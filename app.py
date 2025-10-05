@@ -84,13 +84,17 @@ def get_nearby_places(lat, lng, radius=20, max_radius=100):
     return []
 
 
-def describe_places(lat, lng):
+def describe_places(lat, lng, place_name=None):
     """Generate description of places at given coordinates"""
     places = get_nearby_places(lat, lng)
+    
+    # Add place_name context if provided
+    location_context = f"at {place_name}" if place_name else f"at coordinates ({lat}, {lng})"
+    
     if not places:
         prompt = f"""
         You are an information assistant. There are no significant pins or landmarks 
-        returned at coordinates ({lat}, {lng}). 
+        returned for a person standing {location_context}. 
 
         Give a short, factual description of what is IMMEDIATELY around this exact location 
         within 20-30 meters ONLY. 
@@ -109,7 +113,7 @@ def describe_places(lat, lng):
     else:
         place_info = [f"{p.get('name')} ({', '.join(p.get('types', []))})" for p in places]
         prompt = f"""
-        You are an information assistant. A person is standing at EXACT coordinates ({lat}, {lng}).  
+        You are an information assistant. A person is standing {location_context}.  
         Here are the closest nearby places (all within 50 meters):
 
         {chr(10).join(place_info)}
@@ -181,7 +185,7 @@ def health():
 def generate_audio():
     """
     Generate audio description for given coordinates
-    Expected JSON body: {"latitude": float, "longitude": float}
+    Expected JSON body: {"latitude": float, "longitude": float, "place_name": string (optional)}
     Returns: MP3 file
     """
     try:
@@ -192,6 +196,7 @@ def generate_audio():
         
         lat = float(data['latitude'])
         lng = float(data['longitude'])
+        place_name = data.get('place_name')  # Optional place name from frontend
         
         # Validate coordinates
         if not (-90 <= lat <= 90) or not (-180 <= lng <= 180):
@@ -208,8 +213,9 @@ def generate_audio():
             return send_file(audio_cache_path, mimetype='audio/mpeg')
         
         # Generate description
-        print(f"Generating description for {lat}, {lng}")
-        description = describe_places(lat, lng)
+        location_display = f"{place_name} ({lat}, {lng})" if place_name else f"{lat}, {lng}"
+        print(f"Generating description for {location_display}")
+        description = describe_places(lat, lng, place_name)
         
         # Save text to cache
         with open(text_cache_path, 'w') as f:
