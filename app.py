@@ -49,7 +49,7 @@ def distance(lat1, lng1, lat2, lng2):
     return R * 2 * atan2(sqrt(a), sqrt(1-a))
 
 
-def get_nearby_places(lat, lng, radius=100, max_radius=200):
+def get_nearby_places(lat, lng, radius=20, max_radius=100):
     """Get nearby places from Google Maps API"""
     url = "https://maps.googleapis.com/maps/api/place/nearbysearch/json"
     while radius <= max_radius:
@@ -63,16 +63,24 @@ def get_nearby_places(lat, lng, radius=100, max_radius=200):
             response = requests.get(url, params=params).json()
             results = response.get("results", [])
             if results:
-                # sort by distance from exact (lat, lng)
-                results.sort(key=lambda p: distance(
-                    lat, lng,
-                    p["geometry"]["location"]["lat"],
-                    p["geometry"]["location"]["lng"]
-                ))
-                return results[:3]  # pick top 3 closest
+                # Filter to only include places within 50 meters for hyperspecific results
+                filtered_results = []
+                for p in results:
+                    dist = distance(
+                        lat, lng,
+                        p["geometry"]["location"]["lat"],
+                        p["geometry"]["location"]["lng"]
+                    )
+                    if dist <= 50:  # Only include places within 50 meters
+                        filtered_results.append((p, dist))
+                
+                if filtered_results:
+                    # Sort by distance from exact (lat, lng)
+                    filtered_results.sort(key=lambda x: x[1])
+                    return [p[0] for p in filtered_results[:3]]  # pick top 3 closest
         except Exception as e:
             print(f"Error fetching nearby places: {e}")
-        radius += 50
+        radius += 20  # Smaller increments for more precision
     return []
 
 
@@ -84,36 +92,42 @@ def describe_places(lat, lng):
         You are an information assistant. There are no significant pins or landmarks 
         returned at coordinates ({lat}, {lng}). 
 
-        Still, give a short, factual description of what is most relevant within about 
-        50-100 meters. 
+        Give a short, factual description of what is IMMEDIATELY around this exact location 
+        within 20-30 meters ONLY. 
 
         - Do NOT describe weather, trees, skies, or generic scenery.  
-        - Only mention meaningful structures: old buildings, museums, universities, 
-        statues, memorials, or well-known restaurants.  
+        - Do NOT mention large landmarks or areas unless the person is standing directly at them.
+        - Only describe what is in the IMMEDIATE vicinity: specific buildings, entrances, 
+        pathways, statues, plaques, or architectural features RIGHT where they're standing.
         - If possible, describe them in terms of direction from the person: 
-        "On your left is...", "In front of you is...", etc.  
-        - Keep the language short, factual, and precise.  
-        - Talk about the place in its present form, but also add one or two important 
-        historical notes if relevant.  
+        "Directly in front of you is...", "To your immediate left is...", etc.  
+        - Be HYPERSPECIFIC about the exact spot, not the general area.
+        - Keep the language short, factual, and precise (2-3 sentences max).  
+        - Include one brief historical note if relevant.  
         - Avoid storytelling, no "imagine this," no "alright everyone," no fluff.  
         """
     else:
         place_info = [f"{p.get('name')} ({', '.join(p.get('types', []))})" for p in places]
         prompt = f"""
-        You are an information assistant. A person is standing at coordinates ({lat}, {lng}).  
-        Here are the closest nearby places:
+        You are an information assistant. A person is standing at EXACT coordinates ({lat}, {lng}).  
+        Here are the closest nearby places (all within 50 meters):
+
+        {chr(10).join(place_info)}
 
         Your task:
-        - Summarize only the most significant ones (e.g., historic buildings, museums, 
-        universities, restaurants with cultural relevance).  
-        - Do NOT describe generic shops, hotels, gyms, or residential apartments unless 
-        they are historically/culturally important.  
-        - Phrase directions as if the person is standing there: 
-        "On your left is...", "In front of you is...", etc.  
-        - Keep the description short, clear, and precise.  
-        - Include a brief history or significance where available, but only in 1–2 sentences.  
-        - Avoid fluff, emotions, or storytelling. This is factual guidance only.  
-        """ + "\n".join(place_info)
+        - Describe ONLY what is in the IMMEDIATE vicinity (within 20-30 meters).
+        - Be HYPERSPECIFIC about this exact location, not the general area.
+        - Do NOT mention large landmarks or campuses unless the person is standing directly at them.
+        - Focus on specific buildings, entrances, architectural features, monuments, or notable 
+        structures at THIS EXACT SPOT.
+        - Phrase directions precisely: "Directly in front of you is...", 
+        "To your immediate left/right is...", "You are standing at..."  
+        - Keep it short and precise (2-4 sentences max).  
+        - Include brief history or significance where available, but only in 1 sentence.  
+        - Avoid fluff, emotions, or storytelling. This is factual guidance only.
+        - DO NOT describe generic shops, hotels, gyms, or residential apartments unless 
+        they are historically/culturally important to THIS EXACT SPOT.
+        """
 
     response = model.generate_content(prompt)
     return response.text
@@ -148,10 +162,11 @@ def text_to_speech(text):
 
 
 def get_cache_key(lat, lng):
-    """Generate a cache key based on coordinates (rounded to ~100m precision)"""
-    # Round to 14 decimal places for high precision
-    rounded_lat = round(lat, 14)
-    rounded_lng = round(lng, 14)
+    """Generate a cache key based on coordinates (rounded to ~10m precision)"""
+    # Round to 4 decimal places (~11m precision) to avoid caching too broadly
+    # but still catch very nearby requests
+    rounded_lat = round(lat, 4)
+    rounded_lng = round(lng, 4)
     key = f"{rounded_lat},{rounded_lng}"
     return hashlib.md5(key.encode()).hexdigest()
 
