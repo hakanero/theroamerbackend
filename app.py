@@ -13,13 +13,8 @@ load_dotenv()
 
 app = Flask(__name__)
 
-# Configure CORS to allow requests from your Netlify frontend
-CORS(app, 
-     resources={r"/*": {"origins": "*"}},
-     allow_headers=["Content-Type", "Authorization"],
-     methods=["GET", "POST", "OPTIONS"],
-     supports_credentials=False
-)
+# Simple, permissive CORS - allow all origins
+CORS(app)
 
 # Configuration
 GENAI_API_KEY = os.getenv("GENAI_API_KEY")

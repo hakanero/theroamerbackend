@@ -1,6 +1,0 @@
-{
-  "rewrites": [
-    { "source": "/audio", "destination": "/api/audio" },
-    { "source": "/api/(.*)", "destination": "/api/$1" }
-  ]
-}
