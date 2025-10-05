@@ -74,7 +74,7 @@ def describe_places(lat, lng, place_name=None):
         "Directly in front of you is...", "To your immediate left is...", etc.  
         - Be HYPERSPECIFIC about the exact spot, not the general area.
         - Keep the language short, factual, and precise (2-3 sentences max).  
-        - Include one brief historical note if relevant.  
+        - Include historical notes if relevant.  
         - Avoid storytelling, no "imagine this," no "alright everyone," no fluff.  
         """
     else:
@@ -94,7 +94,7 @@ def describe_places(lat, lng, place_name=None):
         - Phrase directions precisely: "Directly in front of you is...", 
         "To your immediate left/right is...", "You are standing at..."  
         - Keep it short and precise (2-4 sentences max).  
-        - Include brief history or significance where available, but only in 1 sentence.  
+        - Include brief history or significance where available.  
         - Avoid fluff, emotions, or storytelling. This is factual guidance only.
         - DO NOT describe generic shops, hotels, gyms, or residential apartments unless 
         they are historically/culturally important to THIS EXACT SPOT.
