@@ -165,13 +165,17 @@ def text_to_speech(text):
         raise e
 
 
-def get_cache_key(lat, lng):
-    """Generate a cache key based on coordinates (rounded to ~10m precision)"""
+def get_cache_key(lat, lng, place_name=None):
+    """Generate a cache key based on coordinates and place name"""
     # Round to 4 decimal places (~11m precision) to avoid caching too broadly
     # but still catch very nearby requests
     rounded_lat = round(lat, 4)
     rounded_lng = round(lng, 4)
-    key = f"{rounded_lat},{rounded_lng}"
+    # Include place_name in cache key if provided
+    if place_name:
+        key = f"{rounded_lat},{rounded_lng},{place_name}"
+    else:
+        key = f"{rounded_lat},{rounded_lng}"
     return hashlib.md5(key.encode()).hexdigest()
 
 
@@ -202,8 +206,8 @@ def generate_audio():
         if not (-90 <= lat <= 90) or not (-180 <= lng <= 180):
             return jsonify({"error": "Invalid coordinates"}), 400
         
-        # Check cache
-        cache_key = get_cache_key(lat, lng)
+        # Check cache (include place_name in cache key)
+        cache_key = get_cache_key(lat, lng, place_name)
         audio_cache_path = os.path.join(AUDIO_CACHE_DIR, f"{cache_key}.mp3")
         text_cache_path = os.path.join(TEXT_CACHE_DIR, f"{cache_key}.txt")
         
