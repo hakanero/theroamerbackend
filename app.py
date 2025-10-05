@@ -3,6 +3,7 @@ from flask_cors import CORS
 import os
 import tempfile
 import hashlib
+import shutil
 from dotenv import load_dotenv
 from elevenlabs.client import ElevenLabs
 import google.generativeai as genai
@@ -130,12 +131,20 @@ def text_to_speech(text):
     )
 
     # Save to temp file
-    with tempfile.NamedTemporaryFile(delete=False, suffix=".mp3") as f:
+    temp_file = tempfile.NamedTemporaryFile(delete=False, suffix=".mp3")
+    try:
         for chunk in audio_stream:
-            f.write(chunk)
-        audio_path = f.name
-    
-    return audio_path
+            temp_file.write(chunk)
+        temp_file.close()
+        return temp_file.name
+    except Exception as e:
+        temp_file.close()
+        # Clean up temp file on error
+        try:
+            os.unlink(temp_file.name)
+        except:
+            pass
+        raise e
 
 
 def get_cache_key(lat, lng):
@@ -193,12 +202,26 @@ def generate_audio():
         
         # Convert to speech
         print("Converting to speech...")
-        audio_path = text_to_speech(description)
-        
-        # Move to cache
-        os.rename(audio_path, audio_cache_path)
-        
-        return send_file(audio_cache_path, mimetype='audio/mpeg')
+        audio_path = None
+        try:
+            audio_path = text_to_speech(description)
+            
+            # Move to cache (use shutil.move for cross-filesystem compatibility)
+            shutil.move(audio_path, audio_cache_path)
+            audio_path = None  # Successfully moved, no cleanup needed
+            
+            # Verify file exists before sending
+            if not os.path.exists(audio_cache_path):
+                raise FileNotFoundError(f"Audio file not found at {audio_cache_path}")
+            
+            return send_file(audio_cache_path, mimetype='audio/mpeg')
+        finally:
+            # Clean up temp file if it still exists (error occurred before move)
+            if audio_path and os.path.exists(audio_path):
+                try:
+                    os.unlink(audio_path)
+                except Exception as cleanup_error:
+                    print(f"Warning: Failed to cleanup temp file {audio_path}: {cleanup_error}")
     
     except ValueError:
         return jsonify({"error": "Invalid latitude or longitude format"}), 400
@@ -248,12 +271,26 @@ def generate_audio_get():
         
         # Convert to speech
         print("Converting to speech...")
-        audio_path = text_to_speech(description)
-        
-        # Move to cache
-        os.rename(audio_path, audio_cache_path)
-        
-        return send_file(audio_cache_path, mimetype='audio/mpeg')
+        audio_path = None
+        try:
+            audio_path = text_to_speech(description)
+            
+            # Move to cache (use shutil.move for cross-filesystem compatibility)
+            shutil.move(audio_path, audio_cache_path)
+            audio_path = None  # Successfully moved, no cleanup needed
+            
+            # Verify file exists before sending
+            if not os.path.exists(audio_cache_path):
+                raise FileNotFoundError(f"Audio file not found at {audio_cache_path}")
+            
+            return send_file(audio_cache_path, mimetype='audio/mpeg')
+        finally:
+            # Clean up temp file if it still exists (error occurred before move)
+            if audio_path and os.path.exists(audio_path):
+                try:
+                    os.unlink(audio_path)
+                except Exception as cleanup_error:
+                    print(f"Warning: Failed to cleanup temp file {audio_path}: {cleanup_error}")
     
     except ValueError:
         return jsonify({"error": "Invalid latitude or longitude format"}), 400
