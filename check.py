@@ -53,7 +53,7 @@ def get_nearby_places(lat, lng, radius=20, max_radius=100):
 
 def describe_places(lat, lng, place_name=None):
     """Generate description of places at given coordinates"""
-    places = None #get_nearby_places(lat, lng)
+    places = get_nearby_places(lat, lng)
     
     # Add place_name context if provided
     location_context = f"near coordinates ({lat}, {lng}), at {place_name} street or square"
@@ -66,6 +66,7 @@ def describe_places(lat, lng, place_name=None):
         Give a short, factual description of what is IMMEDIATELY around this exact location 
         within 20-30 meters ONLY. 
 
+        -Give names of specific buildings, entrances, pathways, statues, plaques,
         - Do NOT describe weather, trees, skies, or generic scenery.  
         - Do NOT mention large landmarks or areas unless the person is standing directly at them.
         - Only describe what is in the IMMEDIATE vicinity: specific buildings, entrances, 
