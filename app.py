@@ -1,121 +1,64 @@
+import os
+import time
+import math
+import sys
+import shutil
+import google.generativeai as genai
+import check
+from elevenlabs.client import ElevenLabs
+from dotenv import load_dotenv
 from flask import Flask, request, send_file, jsonify
 from flask_cors import CORS
-import os
 import tempfile
 import hashlib
-import shutil
-from dotenv import load_dotenv
-from elevenlabs.client import ElevenLabs
-import google.generativeai as genai
-import requests
-from math import radians, cos, sin, sqrt, atan2
 
 load_dotenv()
-
-app = Flask(__name__)
-
-# Simple, permissive CORS - allow all origins
-CORS(app)
-
-# Configuration
 GENAI_API_KEY = os.getenv("GENAI_API_KEY")
-MAPS_API_KEY = os.getenv("MAPS_API_KEY")
 ELEVEN_API_KEY = os.getenv("ELEVEN_API_KEY")
 
 # Validate required API keys
 if not GENAI_API_KEY:
     raise ValueError("GENAI_API_KEY environment variable is required")
-if not MAPS_API_KEY:
-    raise ValueError("MAPS_API_KEY environment variable is required")
 if not ELEVEN_API_KEY:
     raise ValueError("ELEVEN_API_KEY environment variable is required")
 
-genai.configure(api_key=GENAI_API_KEY)
-model = genai.GenerativeModel("gemini-2.5-flash")
+# Create Flask app
+app = Flask(__name__)
+CORS(app)
 
-# Create cache directories
-AUDIO_CACHE_DIR = os.path.join(os.path.dirname(__file__), "cache", "audio")
-TEXT_CACHE_DIR = os.path.join(os.path.dirname(__file__), "cache", "text")
-os.makedirs(AUDIO_CACHE_DIR, exist_ok=True)
-os.makedirs(TEXT_CACHE_DIR, exist_ok=True)
+# Create cache directory
+CACHE_DIR = os.path.join(os.path.dirname(__file__), "cache", "historical")
+os.makedirs(CACHE_DIR, exist_ok=True)
 
+# Track user sessions (in-memory, could be database later)
+user_sessions = {}
 
-def distance(lat1, lng1, lat2, lng2):
-    """Calculate distance in meters between two coordinates"""
-    R = 6371e3  # meters
-    dlat = radians(lat2 - lat1)
-    dlng = radians(lng2 - lng1)
-    a = sin(dlat/2)**2 + cos(radians(lat1)) * cos(radians(lat2)) * sin(dlng/2)**2
-    return R * 2 * atan2(sqrt(a), sqrt(1-a))
-
-
-def get_nearby_places(lat, lng, radius=100, max_radius=200):
-    """Get nearby places from Google Maps API"""
-    url = "https://maps.googleapis.com/maps/api/place/nearbysearch/json"
-    while radius <= max_radius:
-        params = {
-            "location": f"{lat},{lng}",
-            "radius": radius,
-            "type": "point_of_interest",
-            "key": MAPS_API_KEY
-        }
-        try:
-            response = requests.get(url, params=params).json()
-            results = response.get("results", [])
-            if results:
-                # sort by distance from exact (lat, lng)
-                results.sort(key=lambda p: distance(
-                    lat, lng,
-                    p["geometry"]["location"]["lat"],
-                    p["geometry"]["location"]["lng"]
-                ))
-                return results[:3]  # pick top 3 closest
-        except Exception as e:
-            print(f"Error fetching nearby places: {e}")
-        radius += 50
-    return []
-
-
-def describe_places(lat, lng):
-    """Generate description of places at given coordinates"""
-    places = get_nearby_places(lat, lng)
-    if not places:
-        prompt = f"""
-        You are an information assistant. There are no significant pins or landmarks 
-        returned at coordinates ({lat}, {lng}). 
-
-        Still, give a short, factual description of what is most relevant within about 
-        50-100 meters. 
-
-        - Do NOT describe weather, trees, skies, or generic scenery.  
-        - Only mention meaningful structures: old buildings, museums, universities, 
-        statues, memorials, or well-known restaurants.  
-        - If possible, describe them in terms of direction from the person: 
-        "On your left is...", "In front of you is...", etc.  
-        - Keep the language short, factual, and precise.  
-        - Talk about the place in its present form, but also add one or two important 
-        historical notes if relevant.  
-        - Avoid storytelling, no "imagine this," no "alright everyone," no fluff.  
-        """
-    else:
-        place_info = [f"{p.get('name')} ({', '.join(p.get('types', []))})" for p in places]
-        prompt = f"""
-        You are an information assistant. A person is standing at coordinates ({lat}, {lng}).  
-        Here are the closest nearby places:
-
-        Your task:
-        - Summarize only the most significant ones (e.g., historic buildings, museums, 
-        universities, restaurants with cultural relevance).  
-        - Do NOT describe generic shops, hotels, gyms, or residential apartments unless 
-        they are historically/culturally important.  
-        - Phrase directions as if the person is standing there: 
-        "On your left is...", "In front of you is...", etc.  
-        - Keep the description short, clear, and precise.  
-        - Include a brief history or significance where available, but only in 1–2 sentences.  
-        - Avoid fluff, emotions, or storytelling. This is factual guidance only.  
-        """ + "\n".join(place_info)
-
-    response = model.generate_content(prompt)
+def haversine_distance(lat1, lon1, lat2, lon2):
+    """
+    Calculate the great circle distance between two points 
+    on the earth (specified in decimal degrees)
+    
+    Returns distance in kilometers
+    """
+    # Convert decimal degrees to radians
+    lat1, lon1, lat2, lon2 = map(math.radians, [lat1, lon1, lat2, lon2])
+    
+    # Haversine formula
+    dlat = lat2 - lat1
+    dlon = lon2 - lon1
+    a = math.sin(dlat/2)**2 + math.cos(lat1) * math.cos(lat2) * math.sin(dlon/2)**2
+    c = 2 * math.asin(math.sqrt(a))
+    
+    # Radius of earth in kilometers
+    r = 6371
+    
+    return c * r
+def ask_gemini(question):
+    # Configure and query Gemini
+    genai.configure(api_key=GENAI_API_KEY)
+    model = genai.GenerativeModel('models/gemini-2.5-flash')
+    print(f"\nAsking Gemini: {question}\n")
+    response = model.generate_content(question)
     return response.text
 
 
@@ -139,7 +82,6 @@ def text_to_speech(text):
         return temp_file.name
     except Exception as e:
         temp_file.close()
-        # Clean up temp file on error
         try:
             os.unlink(temp_file.name)
         except:
@@ -147,12 +89,11 @@ def text_to_speech(text):
         raise e
 
 
-def get_cache_key(lat, lng):
-    """Generate a cache key based on coordinates (rounded to ~100m precision)"""
-    # Round to 5 decimal places for high precision
-    rounded_lat = round(lat, 7)
-    rounded_lng = round(lng, 7)
-    key = f"{rounded_lat},{rounded_lng}"
+def get_cache_key(lat, lng, iteration):
+    """Generate a cache key based on coordinates and iteration"""
+    rounded_lat = round(lat, 5)
+    rounded_lng = round(lng, 5)
+    key = f"{rounded_lat},{rounded_lng},{iteration}"
     return hashlib.md5(key.encode()).hexdigest()
 
 
@@ -162,12 +103,16 @@ def health():
     return jsonify({"status": "healthy"}), 200
 
 
-@app.route('/audio', methods=['POST'])
-def generate_audio():
+@app.route('/historical', methods=['POST'])
+def generate_historical_audio():
     """
-    Generate audio description for given coordinates
-    Expected JSON body: {"latitude": float, "longitude": float}
-    Returns: MP3 file
+    Generate historical audio narrative for given coordinates
+    Expected JSON body: {
+        "latitude": float, 
+        "longitude": float,
+        "user_id": string (optional, for tracking sessions)
+    }
+    Returns: MP3 file with historical narrative
     """
     try:
         data = request.get_json()
@@ -177,51 +122,76 @@ def generate_audio():
         
         lat = float(data['latitude'])
         lng = float(data['longitude'])
+        user_id = data.get('user_id', 'default')
         
         # Validate coordinates
         if not (-90 <= lat <= 90) or not (-180 <= lng <= 180):
             return jsonify({"error": "Invalid coordinates"}), 400
         
-        # Check cache
-        cache_key = get_cache_key(lat, lng)
-        audio_cache_path = os.path.join(AUDIO_CACHE_DIR, f"{cache_key}.mp3")
-        text_cache_path = os.path.join(TEXT_CACHE_DIR, f"{cache_key}.txt")
+        # Initialize or get user session
+        if user_id not in user_sessions:
+            user_sessions[user_id] = {
+                'base_lat': lat,
+                'base_lon': lng,
+                'same_place_loop': 0,
+                'answer1': '',
+                'answer2': ''
+            }
         
-        # If cached audio exists, return it
+        session = user_sessions[user_id]
+        
+        # Calculate distance from last base position
+        distance = haversine_distance(session['base_lat'], session['base_lon'], lat, lng)
+        
+        print(f"Distance from last base: {distance} km")
+        
+        # Update position if user moved more than 0.8 km
+        if distance > 0.8:
+            session['base_lat'] = lat
+            session['base_lon'] = lng
+            session['same_place_loop'] = 0
+            session['answer1'] = ''
+            session['answer2'] = ''
+        else:
+            session['same_place_loop'] += 1
+        
+        # Check cache
+        cache_key = get_cache_key(lat, lng, session['same_place_loop'])
+        audio_cache_path = os.path.join(CACHE_DIR, f"{cache_key}.mp3")
+        
         if os.path.exists(audio_cache_path):
-            print(f"Returning cached audio for {lat}, {lng}")
+            print(f"Returning cached historical audio for {lat}, {lng}")
             return send_file(audio_cache_path, mimetype='audio/mpeg')
         
-        # Generate description
-        print(f"Generating description for {lat}, {lng}")
-        description = describe_places(lat, lng)
+        # Generate historical narrative
+        location = f"{lat}, {lng}"
+        base_prompt = f"You are a historian. Provide a detailed history of the area immediately surrounding {location} within about 50 feet. Begin with Indigenous use of the land, then colonial settlement, industrialization, institutional growth, and modern developments. Focus on specific changes to the land, buildings, and community. Present the answer as a chronological timeline followed by a short narrative description. It should take approximately 2 minutes to read aloud, and do not mention any of the prompting given"
         
-        # Save text to cache
-        with open(text_cache_path, 'w') as f:
-            f.write(description)
+        # Build question based on what's been said before
+        if session['same_place_loop'] == 1:
+            question = base_prompt
+            answer = ask_gemini(question)
+            session['answer1'] = answer
+        elif session['same_place_loop'] == 2:
+            question = base_prompt + " You already mentioned the following facts, do not repeat yourself: " + session['answer1']
+            answer = ask_gemini(question)
+            session['answer2'] = answer
+        else:
+            if session['same_place_loop'] >= 3:
+                question = base_prompt + " Focus on a description of present day uses, and do not mention the following facts, do not repeat yourself: " + session['answer1'] + " " + session['answer2']
+            else:
+                # First iteration (same_place_loop == 0)
+                question = base_prompt
+            answer = ask_gemini(question)
         
         # Convert to speech
-        print("Converting to speech...")
-        audio_path = None
-        try:
-            audio_path = text_to_speech(description)
-            
-            # Move to cache (use shutil.move for cross-filesystem compatibility)
-            shutil.move(audio_path, audio_cache_path)
-            audio_path = None  # Successfully moved, no cleanup needed
-            
-            # Verify file exists before sending
-            if not os.path.exists(audio_cache_path):
-                raise FileNotFoundError(f"Audio file not found at {audio_cache_path}")
-            
-            return send_file(audio_cache_path, mimetype='audio/mpeg')
-        finally:
-            # Clean up temp file if it still exists (error occurred before move)
-            if audio_path and os.path.exists(audio_path):
-                try:
-                    os.unlink(audio_path)
-                except Exception as cleanup_error:
-                    print(f"Warning: Failed to cleanup temp file {audio_path}: {cleanup_error}")
+        print("Converting historical narrative to speech...")
+        audio_path = text_to_speech(answer)
+        
+        # Move to cache
+        shutil.move(audio_path, audio_cache_path)
+        
+        return send_file(audio_cache_path, mimetype='audio/mpeg')
     
     except ValueError:
         return jsonify({"error": "Invalid latitude or longitude format"}), 400
@@ -230,75 +200,6 @@ def generate_audio():
         return jsonify({"error": str(e)}), 500
 
 
-@app.route('/audio', methods=['GET'])
-def generate_audio_get():
-    """
-    Generate audio description for given coordinates (GET version)
-    Query parameters: ?latitude=float&longitude=float
-    Returns: MP3 file
-    """
-    try:
-        lat = request.args.get('latitude')
-        lng = request.args.get('longitude')
-        
-        if not lat or not lng:
-            return jsonify({"error": "Missing latitude or longitude"}), 400
-        
-        lat = float(lat)
-        lng = float(lng)
-        
-        # Validate coordinates
-        if not (-90 <= lat <= 90) or not (-180 <= lng <= 180):
-            return jsonify({"error": "Invalid coordinates"}), 400
-        
-        # Check cache
-        cache_key = get_cache_key(lat, lng)
-        audio_cache_path = os.path.join(AUDIO_CACHE_DIR, f"{cache_key}.mp3")
-        text_cache_path = os.path.join(TEXT_CACHE_DIR, f"{cache_key}.txt")
-        
-        # If cached audio exists, return it
-        if os.path.exists(audio_cache_path):
-            print(f"Returning cached audio for {lat}, {lng}")
-            return send_file(audio_cache_path, mimetype='audio/mpeg')
-        
-        # Generate description
-        print(f"Generating description for {lat}, {lng}")
-        description = describe_places(lat, lng)
-        
-        # Save text to cache
-        with open(text_cache_path, 'w') as f:
-            f.write(description)
-        
-        # Convert to speech
-        print("Converting to speech...")
-        audio_path = None
-        try:
-            audio_path = text_to_speech(description)
-            
-            # Move to cache (use shutil.move for cross-filesystem compatibility)
-            shutil.move(audio_path, audio_cache_path)
-            audio_path = None  # Successfully moved, no cleanup needed
-            
-            # Verify file exists before sending
-            if not os.path.exists(audio_cache_path):
-                raise FileNotFoundError(f"Audio file not found at {audio_cache_path}")
-            
-            return send_file(audio_cache_path, mimetype='audio/mpeg')
-        finally:
-            # Clean up temp file if it still exists (error occurred before move)
-            if audio_path and os.path.exists(audio_path):
-                try:
-                    os.unlink(audio_path)
-                except Exception as cleanup_error:
-                    print(f"Warning: Failed to cleanup temp file {audio_path}: {cleanup_error}")
-    
-    except ValueError:
-        return jsonify({"error": "Invalid latitude or longitude format"}), 400
-    except Exception as e:
-        print(f"Error: {e}")
-        return jsonify({"error": str(e)}), 500
-
-
-if __name__ == '__main__':
-    port = int(os.getenv('PORT', 8080))
-    app.run(host='0.0.0.0', port=port, debug=False)
+if __name__ == "__main__":
+    port = int(os.getenv('PORT', 5000))
+    app.run(host='0.0.0.0', port=port, debug=True)
