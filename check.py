@@ -15,7 +15,7 @@ genai.configure(api_key=GENAI_API_KEY)
 model = genai.GenerativeModel("gemini-2.5-flash")
 
 def distance(lat1, lng1, lat2, lng2):
-    R = 6371e3  # meters
+    R = 6371e3
     dlat = radians(lat2 - lat1)
     dlng = radians(lng2 - lng1)
     a = sin(dlat/2)**2 + cos(radians(lat1)) * cos(radians(lat2)) * sin(dlng/2)**2
@@ -33,7 +33,6 @@ def get_nearby_places(lat, lng, radius=20, max_radius=100):
         response = requests.get(url, params=params).json()
         results = response.get("results", [])
         if results:
-            # Filter to only include places within 50 meters for hyperspecific results
             filtered_results = []
             for p in results:
                 dist = distance(
@@ -41,22 +40,19 @@ def get_nearby_places(lat, lng, radius=20, max_radius=100):
                     p["geometry"]["location"]["lat"],
                     p["geometry"]["location"]["lng"]
                 )
-                if dist <= 50:  # Only include places within 50 meters
+                if dist <= 50:
                     filtered_results.append((p, dist))
             
             if filtered_results:
-                # Sort by distance from exact (lat, lng)
                 filtered_results.sort(key=lambda x: x[1])
-                return [p[0] for p in filtered_results[:3]]  # pick top 3 closest
-        radius += 20  # Smaller increments for more precision
+                return [p[0] for p in filtered_results[:3]]
+        radius += 20
     return []
 
 
 def describe_places(lat, lng, place_name, language):
-    """Generate description of places at given coordinates"""
     places = get_nearby_places(lat, lng)
 
-    # Add place_name context if provided
     location_context = f"near coordinates ({lat}, {lng}), at {place_name} street or square"
     
     if not places:
@@ -115,7 +111,6 @@ def describe_places(lat, lng, place_name, language):
     return response.text
 
 def speech(msg):
-    """Convert text message to speech and save to temp file, returns file path"""
     api_key = os.getenv("ELEVEN_API_KEY")
     if not api_key:
         raise ValueError("Missing ELEVEN_API_KEY!")
@@ -124,7 +119,6 @@ def speech(msg):
 
     print("Tour Guide:", msg)
 
-    # Convert text → audio stream
     audio_stream = client.text_to_speech.convert(
         text=msg,
         voice_id="JBFqnCBsd6RMkjVDRZzb",
@@ -132,32 +126,16 @@ def speech(msg):
         output_format="mp3_44100_128",
     )
 
-    # Save to temp file
     with tempfile.NamedTemporaryFile(delete=False, suffix=".mp3") as f:
         for chunk in audio_stream:
             f.write(chunk)
-        return f.name  # Return the file path
+        return f.name
 
 def generate_audio_for_location(lat, lng, place_name, language="English"):
-    """
-    Main function to generate audio description for a location.
-    This is what app.py should call.
-    
-    Args:
-        lat: Latitude
-        lng: Longitude
-        place_name: Optional name of the place (e.g., "Harvard Square")
-    
-    Returns:
-        Path to the generated audio file
-    """
-    # Generate description
     description = describe_places(lat, lng, place_name, language)
-    # Convert to speech and return file path
     audio_file_path = speech(description)
     
-    return audio_file_path
-
+    return audio_file_path, description
 
 # How do I plug in the language to the describe_places function?
 # Still need to define the get_language function and uncomment

@@ -2,29 +2,23 @@ from flask import Flask, request, send_file, jsonify
 from flask_cors import CORS
 import os
 from dotenv import load_dotenv
-import check  # Import the check module with all the core logic
+import check
+import base64
 
 load_dotenv()
 
 app = Flask(__name__)
 
-# Simple, permissive CORS - allow all origins
 CORS(app)
 
 
 @app.route('/health', methods=['GET'])
 def health():
-    """Health check endpoint"""
     return jsonify({"status": "healthy"}), 200
 
 
 @app.route('/audio', methods=['POST'])
 def generate_audio():
-    """
-    Generate audio description for given coordinates
-    Expected JSON body: {"latitude": float, "longitude": float, "place_name": string, "language": string (optional, defaults to "English")}
-    Returns: MP3 file
-    """
     try:
         data = request.get_json()
         
@@ -34,28 +28,29 @@ def generate_audio():
         lat = float(data['latitude'])
         lng = float(data['longitude'])
         place_name = data['place_name']
-        language = data.get('language', 'English')  # Optional, defaults to English
+        language = data.get('language', 'English')
         
-        # Validate place_name is not empty
         if not place_name or not place_name.strip():
             return jsonify({"error": "place_name cannot be empty"}), 400
         
-        # Validate coordinates
         if not (-90 <= lat <= 90) or not (-180 <= lng <= 180):
             return jsonify({"error": "Invalid coordinates"}), 400
         
-        # Generate audio using check.py
         location_display = f"{place_name} ({lat}, {lng})"
         print(f"Generating audio for {location_display} in {language}")
         
-        # Call the main function from check.py
-        audio_path = check.generate_audio_for_location(lat, lng, place_name, language)
+        audio_path, transcript = check.generate_audio_for_location(lat, lng, place_name, language)
         
         try:
-            # Return the audio file and clean it up after sending
-            return send_file(audio_path, mimetype='audio/mpeg', as_attachment=False)
+            with open(audio_path, 'rb') as audio_file:
+                audio_data = base64.b64encode(audio_file.read()).decode('utf-8')
+            
+            return jsonify({
+                "transcript": transcript,
+                "audio": audio_data,
+                "audioFormat": "mp3"
+            }), 200
         finally:
-            # Clean up temp file after sending
             try:
                 if os.path.exists(audio_path):
                     os.unlink(audio_path)
@@ -71,43 +66,39 @@ def generate_audio():
 
 @app.route('/audio', methods=['GET'])
 def generate_audio_get():
-    """
-    Generate audio description for given coordinates (GET version)
-    Query parameters: ?latitude=float&longitude=float&place_name=string&language=string (optional, defaults to "English")
-    Returns: MP3 file
-    """
     try:
         lat = request.args.get('latitude')
         lng = request.args.get('longitude')
-        place_name = request.args.get('place_name')  # Required
-        language = request.args.get('language', 'English')  # Optional, defaults to English
+        place_name = request.args.get('place_name')
+        language = request.args.get('language', 'English')
         
         if not lat or not lng or not place_name:
             return jsonify({"error": "Missing latitude, longitude, or place_name"}), 400
         
-        # Validate place_name is not empty
         if not place_name.strip():
             return jsonify({"error": "place_name cannot be empty"}), 400
         
         lat = float(lat)
         lng = float(lng)
         
-        # Validate coordinates
         if not (-90 <= lat <= 90) or not (-180 <= lng <= 180):
             return jsonify({"error": "Invalid coordinates"}), 400
         
-        # Generate audio using check.py
         location_display = f"{place_name} ({lat}, {lng})"
         print(f"Generating audio for {location_display} in {language}")
         
-        # Call the main function from check.py
-        audio_path = check.generate_audio_for_location(lat, lng, place_name, language)
+        audio_path, transcript = check.generate_audio_for_location(lat, lng, place_name, language)
         
         try:
-            # Return the audio file and clean it up after sending
-            return send_file(audio_path, mimetype='audio/mpeg', as_attachment=False)
+            with open(audio_path, 'rb') as audio_file:
+                audio_data = base64.b64encode(audio_file.read()).decode('utf-8')
+            
+            return jsonify({
+                "transcript": transcript,
+                "audio": audio_data,
+                "audioFormat": "mp3"
+            }), 200
         finally:
-            # Clean up temp file after sending
             try:
                 if os.path.exists(audio_path):
                     os.unlink(audio_path)
