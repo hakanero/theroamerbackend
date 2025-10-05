@@ -22,7 +22,7 @@ def health():
 def generate_audio():
     """
     Generate audio description for given coordinates
-    Expected JSON body: {"latitude": float, "longitude": float, "place_name": string}
+    Expected JSON body: {"latitude": float, "longitude": float, "place_name": string, "language": string (optional, defaults to "English")}
     Returns: MP3 file
     """
     try:
@@ -34,6 +34,7 @@ def generate_audio():
         lat = float(data['latitude'])
         lng = float(data['longitude'])
         place_name = data['place_name']
+        language = data.get('language', 'English')  # Optional, defaults to English
         
         # Validate place_name is not empty
         if not place_name or not place_name.strip():
@@ -45,10 +46,10 @@ def generate_audio():
         
         # Generate audio using check.py
         location_display = f"{place_name} ({lat}, {lng})"
-        print(f"Generating audio for {location_display}")
+        print(f"Generating audio for {location_display} in {language}")
         
         # Call the main function from check.py
-        audio_path = check.generate_audio_for_location(lat, lng, place_name)
+        audio_path = check.generate_audio_for_location(lat, lng, place_name, language)
         
         try:
             # Return the audio file and clean it up after sending
@@ -72,13 +73,14 @@ def generate_audio():
 def generate_audio_get():
     """
     Generate audio description for given coordinates (GET version)
-    Query parameters: ?latitude=float&longitude=float&place_name=string
+    Query parameters: ?latitude=float&longitude=float&place_name=string&language=string (optional, defaults to "English")
     Returns: MP3 file
     """
     try:
         lat = request.args.get('latitude')
         lng = request.args.get('longitude')
         place_name = request.args.get('place_name')  # Required
+        language = request.args.get('language', 'English')  # Optional, defaults to English
         
         if not lat or not lng or not place_name:
             return jsonify({"error": "Missing latitude, longitude, or place_name"}), 400
@@ -96,10 +98,10 @@ def generate_audio_get():
         
         # Generate audio using check.py
         location_display = f"{place_name} ({lat}, {lng})"
-        print(f"Generating audio for {location_display}")
+        print(f"Generating audio for {location_display} in {language}")
         
         # Call the main function from check.py
-        audio_path = check.generate_audio_for_location(lat, lng, place_name)
+        audio_path = check.generate_audio_for_location(lat, lng, place_name, language)
         
         try:
             # Return the audio file and clean it up after sending

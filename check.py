@@ -51,10 +51,11 @@ def get_nearby_places(lat, lng, radius=20, max_radius=100):
         radius += 20  # Smaller increments for more precision
     return []
 
-def describe_places(lat, lng, place_name=None):
+
+def describe_places(lat, lng, place_name, language):
     """Generate description of places at given coordinates"""
     places = get_nearby_places(lat, lng)
-    
+
     # Add place_name context if provided
     location_context = f"near coordinates ({lat}, {lng}), at {place_name} street or square"
     
@@ -78,6 +79,7 @@ def describe_places(lat, lng, place_name=None):
         - Keep the language factual, and precise (5 sentences max).  
         - Include historical notes if relevant.  
         - Avoid storytelling, no "imagine this," no "alright everyone," no fluff.  
+        - Respond to this prompt in the {language} language
         """
     else:
         place_info = [f"{p.get('name')} ({', '.join(p.get('types', []))})" for p in places]
@@ -106,6 +108,7 @@ def describe_places(lat, lng, place_name=None):
         - Talk in order first talk about buildings exactly beside and near the person and then start further away, be more precise
         you can do it 
         - also dont keep talking about the same area even if we moved away update frequently
+        - Respond to this prompt in the {language} language
         """
 
     response = model.generate_content(prompt)
@@ -125,7 +128,7 @@ def speech(msg):
     audio_stream = client.text_to_speech.convert(
         text=msg,
         voice_id="JBFqnCBsd6RMkjVDRZzb",
-        model_id="eleven_multilingual_v2",
+        model_id="eleven_flash_v2_5",
         output_format="mp3_44100_128",
     )
 
@@ -135,8 +138,7 @@ def speech(msg):
             f.write(chunk)
         return f.name  # Return the file path
 
-
-def generate_audio_for_location(lat, lng, place_name=None):
+def generate_audio_for_location(lat, lng, place_name, language="English"):
     """
     Main function to generate audio description for a location.
     This is what app.py should call.
@@ -150,19 +152,13 @@ def generate_audio_for_location(lat, lng, place_name=None):
         Path to the generated audio file
     """
     # Generate description
-    description = describe_places(lat, lng, place_name)
-    
+    description = describe_places(lat, lng, place_name, language)
     # Convert to speech and return file path
     audio_file_path = speech(description)
     
     return audio_file_path
 
 
-if __name__ == "__main__":
-    # Test example
-    test_lat = 42.3744
-    test_lng = -71.1169
-    test_place = "Harvard Square"
-    
-    audio_path = generate_audio_for_location(test_lat, test_lng, test_place)
-    print(f"Audio file saved to: {audio_path}")
+# How do I plug in the language to the describe_places function?
+# Still need to define the get_language function and uncomment
+# the language variable in the describe_places function
