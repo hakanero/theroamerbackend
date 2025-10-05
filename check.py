@@ -56,7 +56,7 @@ def describe_places(lat, lng, place_name=None):
     places = get_nearby_places(lat, lng)
     
     # Add place_name context if provided
-    location_context = f"at {place_name}" if place_name else f"at coordinates ({lat}, {lng})"
+    location_context = f"near coordinates ({lat}, {lng}), at {place_name} street or square"
     
     if not places:
         prompt = f"""
@@ -80,7 +80,7 @@ def describe_places(lat, lng, place_name=None):
     else:
         place_info = [f"{p.get('name')} ({', '.join(p.get('types', []))})" for p in places]
         prompt = f"""
-        You are an information assistant. A person is standing {location_context}.  
+        You are an information assistant. A person is standing at {location_context}.  
         Here are the closest nearby places (all within 50 meters):
 
         {chr(10).join(place_info)}
