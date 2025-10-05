@@ -149,9 +149,9 @@ def text_to_speech(text):
 
 def get_cache_key(lat, lng):
     """Generate a cache key based on coordinates (rounded to ~100m precision)"""
-    # Round to 8 decimal places for high precision
-    rounded_lat = round(lat, 8)
-    rounded_lng = round(lng, 8)
+    # Round to 14 decimal places for high precision
+    rounded_lat = round(lat, 14)
+    rounded_lng = round(lng, 14)
     key = f"{rounded_lat},{rounded_lng}"
     return hashlib.md5(key.encode()).hexdigest()
 
