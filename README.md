@@ -18,7 +18,9 @@ Generate audio description for given coordinates.
 ```json
 {
   "latitude": 41.529146,
-  "longitude": -71.418785
+  "longitude": -71.418785.
+  "place_name": "Harvard Yard"
+  "language": "english",
 }
 ```
 
@@ -30,13 +32,15 @@ Alternative GET endpoint.
 **Query Parameters:**
 - `latitude`: float
 - `longitude`: float
+- `place_name `: string
+- `language`: string
 
 **Example:**
 ```
-GET /audio?latitude=41.529146&longitude=-71.418785
+GET /audio?latitude=41.529146&longitude=-71.418785&place_name=Harvard Yard
 ```
 
-**Response:** MP3 audio file
+**Response:** Json File containing Audio Transcript and Base64 MP3 audio file
 
 ### GET /health
 Health check endpoint.
@@ -68,68 +72,6 @@ python app.py
 
 The server will start on `http://localhost:8080`
 
-## Testing Locally
-
-```bash
-# Using curl with POST
-curl -X POST http://localhost:8080/audio \
-  -H "Content-Type: application/json" \
-  -d '{"latitude": 41.529146, "longitude": -71.418785}' \
-  --output test.mp3
-
-# Using curl with GET
-curl "http://localhost:8080/audio?latitude=41.529146&longitude=-71.418785" \
-  --output test.mp3
-```
-
-## Deployment to Fly.io
-
-1. Install the Fly CLI:
-```bash
-curl -L https://fly.io/install.sh | sh
-```
-
-2. Login to Fly.io:
-```bash
-flyctl auth login
-```
-
-3. Launch the app (first time):
-```bash
-flyctl launch
-```
-This will detect the Dockerfile and create the app.
-
-4. Set your environment variables as secrets:
-```bash
-flyctl secrets set GENAI_API_KEY=your_google_genai_api_key
-flyctl secrets set MAPS_API_KEY=your_google_maps_api_key
-flyctl secrets set ELEVEN_API_KEY=your_elevenlabs_api_key
-```
-
-5. Deploy:
-```bash
-flyctl deploy
-```
-
-6. Check the status:
-```bash
-flyctl status
-```
-
-## Environment Variables
-
-- `GENAI_API_KEY`: Google Generative AI API key
-- `MAPS_API_KEY`: Google Maps API key
-- `ELEVEN_API_KEY`: ElevenLabs API key
-- `PORT`: Server port (default: 8080)
-
-## Caching
-
-The application caches both text descriptions and generated audio files to reduce API costs and improve response times. Cache is organized by coordinates rounded to ~100m precision.
-
-- Text cache: `cache/text/`
-- Audio cache: `cache/audio/`
 
 ## Architecture
 
@@ -139,6 +81,3 @@ The application caches both text descriptions and generated audio files to reduc
 - **Google Maps API**: Fetches nearby points of interest
 - **Gunicorn**: Production WSGI server
 
-## License
-
-MIT
