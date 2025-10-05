@@ -53,7 +53,7 @@ def get_nearby_places(lat, lng, radius=20, max_radius=100):
 
 def describe_places(lat, lng, place_name=None):
     """Generate description of places at given coordinates"""
-    places = get_nearby_places(lat, lng)
+    places = None #get_nearby_places(lat, lng)
     
     # Add place_name context if provided
     location_context = f"near coordinates ({lat}, {lng}), at {place_name} street or square"
