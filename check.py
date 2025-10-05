@@ -100,6 +100,12 @@ def describe_places(lat, lng, place_name=None):
         - Keep the language factual, and precise (5 sentences max).  
         - Include historical notes if relevant.  
         - Avoid storytelling, no "imagine this," no "alright everyone," no fluff.  
+        - DO NOT describe generic shops, hotels, gyms, or residential apartments unless
+        they are historically/culturally important to THIS EXACT SPOT.
+        talk about buildings that have names for example Harvard Law School, the White House etc.
+        - Talk in order first talk about buildings exactly beside and near the person and then start further away, be more precise
+        you can do it 
+        - also dont keep talking about the same area even if we moved away update frequently
         """
 
     response = model.generate_content(prompt)
