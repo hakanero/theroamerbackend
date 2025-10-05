@@ -67,6 +67,7 @@ def describe_places(lat, lng, place_name=None):
         within 20-30 meters ONLY. 
 
         -Give names of specific buildings, entrances, pathways, statues, plaques,
+        - point out any historical markers or notable architectural features.
         - Do NOT describe weather, trees, skies, or generic scenery.  
         - Do NOT mention large landmarks or areas unless the person is standing directly at them.
         - Only describe what is in the IMMEDIATE vicinity: specific buildings, entrances, 
@@ -74,7 +75,7 @@ def describe_places(lat, lng, place_name=None):
         - If possible, describe them in terms of direction from the person: 
         "Directly in front of you is...", "To your immediate left is...", etc.  
         - Be HYPERSPECIFIC about the exact spot, not the general area.
-        - Keep the language short, factual, and precise (2-3 sentences max).  
+        - Keep the language factual, and precise (5 sentences max).  
         - Include historical notes if relevant.  
         - Avoid storytelling, no "imagine this," no "alright everyone," no fluff.  
         """
@@ -87,18 +88,18 @@ def describe_places(lat, lng, place_name=None):
         {chr(10).join(place_info)}
 
         Your task:
-        - Describe ONLY what is in the IMMEDIATE vicinity (within 20-30 meters).
-        - Be HYPERSPECIFIC about this exact location, not the general area.
-        - Do NOT mention large landmarks or campuses unless the person is standing directly at them.
-        - Focus on specific buildings, entrances, architectural features, monuments, or notable 
-        structures at THIS EXACT SPOT.
-        - Phrase directions precisely: "Directly in front of you is...", 
-        "To your immediate left/right is...", "You are standing at..."  
-        - Keep it short and precise (2-4 sentences max).  
-        - Include brief history or significance where available.  
-        - Avoid fluff, emotions, or storytelling. This is factual guidance only.
-        - DO NOT describe generic shops, hotels, gyms, or residential apartments unless 
-        they are historically/culturally important to THIS EXACT SPOT.
+        -Give names of specific buildings, entrances, pathways, statues, plaques,
+        - point out any historical markers or notable architectural features.
+        - Do NOT describe weather, trees, skies, or generic scenery.  
+        - Do NOT mention large landmarks or areas unless the person is standing directly at them.
+        - Only describe what is in the IMMEDIATE vicinity: specific buildings, entrances, 
+        pathways, statues, plaques, or architectural features RIGHT where they're standing.
+        - If possible, describe them in terms of direction from the person: 
+        "Directly in front of you is...", "To your immediate left is...", etc.  
+        - Be HYPERSPECIFIC about the exact spot, not the general area.
+        - Keep the language factual, and precise (5 sentences max).  
+        - Include historical notes if relevant.  
+        - Avoid storytelling, no "imagine this," no "alright everyone," no fluff.  
         """
 
     response = model.generate_content(prompt)
